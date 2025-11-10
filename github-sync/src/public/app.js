@@ -394,3 +394,89 @@ window.addEventListener('click', (e) => {
         closeRollbackModal();
     }
 });
+
+// ============================================================================
+// Restart Management
+// ============================================================================
+
+let restartCheckInterval = null;
+
+/**
+ * Check restart status
+ */
+async function checkRestartStatus() {
+    try {
+        const response = await fetch('./api/restart/status');
+        const status = await response.json();
+
+        if (status.scheduled && status.remainingSeconds > 0) {
+            showRestartBanner(status.remainingSeconds);
+        } else {
+            hideRestartBanner();
+        }
+    } catch (error) {
+        console.error('Failed to check restart status:', error);
+    }
+}
+
+/**
+ * Show restart countdown banner
+ */
+function showRestartBanner(seconds) {
+    const banner = document.getElementById('restart-banner');
+    const countdown = document.getElementById('restart-countdown');
+    
+    countdown.textContent = seconds;
+    banner.classList.remove('hidden');
+
+    // Start polling if not already running
+    if (!restartCheckInterval) {
+        restartCheckInterval = setInterval(checkRestartStatus, 1000);
+    }
+}
+
+/**
+ * Hide restart banner
+ */
+function hideRestartBanner() {
+    const banner = document.getElementById('restart-banner');
+    banner.classList.add('hidden');
+
+    // Stop polling
+    if (restartCheckInterval) {
+        clearInterval(restartCheckInterval);
+        restartCheckInterval = null;
+    }
+}
+
+/**
+ * Cancel restart countdown
+ */
+async function cancelRestartCountdown() {
+    try {
+        const response = await fetch('./api/restart/cancel', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (result.cancelled) {
+            showToast('Restart cancelled', 'success');
+            hideRestartBanner();
+        } else {
+            showToast(result.reason || 'No restart to cancel', 'info');
+        }
+    } catch (error) {
+        console.error('Failed to cancel restart:', error);
+        showToast('Failed to cancel restart', 'error');
+    }
+}
+
+// Start checking restart status on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Check immediately
+    checkRestartStatus();
+    
+    // Then check every 2 seconds
+    setInterval(checkRestartStatus, 2000);
+});

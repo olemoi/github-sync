@@ -519,3 +519,60 @@ header h1 .icon {
         gap: 10px;
     }
 }
+
+/* Restart Banner */
+.restart-banner {
+    background: linear-gradient(135deg, var(--warning) 0%, var(--error) 100%);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+}
+
+.restart-banner.hidden {
+    display: none;
+}
+
+.restart-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.restart-icon {
+    width: 48px;
+    height: 48px;
+    fill: white;
+    flex-shrink: 0;
+}
+
+.restart-message {
+    flex: 1;
+}
+
+.restart-message strong {
+    display: block;
+    font-size: 18px;
+    color: white;
+    margin-bottom: 4px;
+}
+
+.restart-message p {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+}
+
+#restart-countdown {
+    font-weight: bold;
+    font-size: 24px;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.85;
+    }
+}

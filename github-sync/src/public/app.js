@@ -41,7 +41,7 @@ function switchTab(tabName) {
 // Load configuration
 async function loadConfiguration() {
     try {
-        const response = await fetch('/api/config');
+        const response = await fetch('./api/config');
         const config = await response.json();
 
         document.getElementById('repo-name').textContent = config.repository || 'Not configured';
@@ -61,7 +61,7 @@ async function refreshData() {
 // Load statistics
 async function loadStats() {
     try {
-        const response = await fetch('/api/stats');
+        const response = await fetch('./api/stats');
         const stats = await response.json();
 
         document.getElementById('stat-total').textContent = stats.total || 0;
@@ -83,7 +83,7 @@ async function loadHistory() {
     const historyList = document.getElementById('history-list');
 
     try {
-        const response = await fetch('/api/history?limit=20');
+        const response = await fetch('./api/history?limit=20');
         const history = await response.json();
 
         if (history.length === 0) {
@@ -130,7 +130,7 @@ async function loadBackups() {
     const backupsList = document.getElementById('backups-list');
 
     try {
-        const response = await fetch('/api/backups');
+        const response = await fetch('./api/backups');
         const backups = await response.json();
 
         if (backups.length === 0) {
@@ -181,7 +181,7 @@ async function showRollbackModal() {
 
     // Load backups
     try {
-        const response = await fetch('/api/backups');
+        const response = await fetch('./api/backups');
         const backups = await response.json();
 
         if (backups.length === 0) {
@@ -232,7 +232,7 @@ async function performRollback() {
     closeRollbackModal();
 
     try {
-        const response = await fetch('/api/rollback', {
+        const response = await fetch('./api/rollback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -260,7 +260,7 @@ async function rollbackToBackup(backupPath) {
     }
 
     try {
-        const response = await fetch('/api/rollback', {
+        const response = await fetch('./api/rollback', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ backupPath })
@@ -312,7 +312,7 @@ async function triggerSync() {
     showToast('Sync started...', 'info');
 
     try {
-        const response = await fetch('/api/sync', {
+        const response = await fetch('./api/sync', {
             method: 'POST'
         });
 
@@ -336,7 +336,7 @@ async function clearHistory() {
     }
 
     try {
-        const response = await fetch('/api/history', {
+        const response = await fetch('./api/history', {
             method: 'DELETE'
         });
 

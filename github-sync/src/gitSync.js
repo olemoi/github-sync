@@ -1,7 +1,7 @@
 const simpleGit = require('simple-git');
 const fs = require('fs').promises;
 const path = require('path');
-const { log, exists, copyDirectory, removeDirectory } = require('./utils');
+const { log, exists, copyDirectory, syncDirectory, removeDirectory } = require('./utils');
 const { createBackup, cleanOldBackups } = require('./backup');
 const { addSyncEntry, updateSyncEntry } = require('./syncHistory');
 const { notifySyncStarted, notifySyncSuccess, notifySyncFailed } = require('./notifications');
@@ -153,12 +153,12 @@ async function syncFromGitHub(syncType = 'manual', metadata = {}) {
     // Clean up validation directory
     await removeDirectory(validationDir);
 
-    // Step 6: Apply changes atomically
+    // Step 6: Apply changes atomically (with deletions)
     log.info('Applying changes to config directory...');
 
-    await copyDirectory(tempDir, syncPath, { overwrite: true });
+    await syncDirectory(tempDir, syncPath);
 
-    log.info('Changes applied successfully');
+    log.info('Changes applied successfully (including deletions)');
 
     // Step 7: Clean up temp directory
     await removeDirectory(tempDir);

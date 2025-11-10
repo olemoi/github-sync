@@ -68,6 +68,46 @@ async function copyDirectory(source, destination, options = {}) {
 }
 
 /**
+ * Sync directory - mirrors source to destination (deletes files not in source)
+ * Excludes Home Assistant internal files
+ */
+async function syncDirectory(source, destination) {
+  try {
+    // Ensure destination exists
+    await fs.mkdir(destination, { recursive: true });
+
+    // Protected files/directories that should never be deleted
+    const excludes = [
+      '.storage/',
+      '.cloud/',
+      '.HA_VERSION',
+      'home-assistant.log*',
+      'home-assistant_v2.db*',
+      'OZW_Log.txt',
+      '.uuid',
+      '.google.token',
+      'deps/',
+      'tts/',
+      'www/',
+      'custom_components/',
+      'blueprints/'
+    ];
+
+    // Build rsync command with --delete flag and excludes
+    const excludeFlags = excludes.map(e => `--exclude="${e}"`).join(' ');
+    const command = `rsync -av --delete ${excludeFlags} "${source}/" "${destination}/"`;
+
+    log.info('Syncing directory (this will delete removed files)...');
+    await execAsync(command);
+
+    log.info(`Synced ${source} to ${destination}`);
+
+  } catch (error) {
+    throw new Error(`Failed to sync directory: ${error.message}`);
+  }
+}
+
+/**
  * Remove directory recursively
  */
 async function removeDirectory(dirPath) {
@@ -118,6 +158,7 @@ module.exports = {
   log,
   exists,
   copyDirectory,
+  syncDirectory,
   removeDirectory,
   getDirectorySize,
   formatBytes,

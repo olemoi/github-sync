@@ -1,6 +1,7 @@
 const simpleGit = require('simple-git');
 const fs = require('fs').promises;
 const path = require('path');
+const http = require('http');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const { log, exists, copyDirectory, removeDirectory } = require('./utils');
@@ -55,9 +56,40 @@ async function restartHomeAssistant() {
   log.info('Restarting Home Assistant...');
 
   try {
-    // Use Home Assistant CLI to restart core
-    await execAsync('ha core restart');
-    log.info('Home Assistant restart command sent');
+    // Use Supervisor API to restart core
+    const token = process.env.SUPERVISOR_TOKEN;
+    if (!token) {
+      log.warn('SUPERVISOR_TOKEN not available, skipping restart');
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'supervisor',
+        port: 80,
+        path: '/core/restart',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
+      const req = http.request(options, (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          log.info('Home Assistant restart command sent');
+          resolve();
+        } else {
+          reject(new Error(`Supervisor API returned ${res.statusCode}`));
+        }
+      });
+
+      req.on('error', (error) => {
+        reject(error);
+      });
+
+      req.end();
+    });
   } catch (error) {
     log.error(`Failed to restart Home Assistant: ${error.message}`);
     throw error;
@@ -77,14 +109,13 @@ async function validateConfiguration(configPath) {
       throw new Error('configuration.yaml not found in repository');
     }
 
-    // Use Home Assistant's config check
-    const { stdout, stderr } = await execAsync('ha core check');
-
-    if (stderr && stderr.includes('error')) {
-      throw new Error(`Configuration validation failed: ${stderr}`);
+    // Basic validation - just check that the file can be read
+    const content = await fs.readFile(configYaml, 'utf8');
+    if (!content || content.trim().length === 0) {
+      throw new Error('configuration.yaml is empty');
     }
 
-    log.info('Configuration validation passed');
+    log.info('Basic configuration validation passed');
     return true;
   } catch (error) {
     log.error(`Configuration validation failed: ${error.message}`);

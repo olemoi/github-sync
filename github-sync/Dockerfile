@@ -24,10 +24,9 @@ RUN npm ci --only=production || npm install --only=production
 # Copy application files
 COPY src/ ./src/
 COPY run.sh /
-COPY run-standalone.sh /
 
-# Make run scripts executable
-RUN chmod a+x /run.sh /run-standalone.sh
+# Make run script executable
+RUN chmod a+x /run.sh
 
 # Set entrypoint
 CMD [ "/run.sh" ]

@@ -1,10 +1,11 @@
 const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
-const { syncFromGitHub, restartHomeAssistant } = require('./gitSync');
+const { syncFromGitHub } = require('./gitSync');
 const { listBackups, rollbackToBackup, deleteBackup } = require('./backup');
 const { getStats, getRecentSyncs, clearHistory } = require('./syncHistory');
 const { notifyRollbackSuccess, notifyRollbackFailed } = require('./notifications');
+const { scheduleRestart, cancelRestart, getRestartStatus } = require('./restartManager');
 const { log, formatBytes } = require('./utils');
 
 const app = express();
@@ -158,22 +159,49 @@ app.delete('/api/backups/:filename', async (req, res) => {
 });
 
 /**
- * Restart Home Assistant
+ * Schedule Home Assistant restart
  */
 app.post('/api/restart', async (req, res) => {
   try {
-    log.info('Restart requested via API');
+    const delaySeconds = parseInt(req.body.delaySeconds || '10', 10);
+    log.info(`Restart requested via API with ${delaySeconds}s delay`);
+
+    const result = await scheduleRestart(delaySeconds);
 
     res.json({
-      success: true,
-      message: 'Restart command sent'
+      success: result.scheduled,
+      ...result
     });
 
-    // Restart after sending response
-    await restartHomeAssistant();
-
   } catch (error) {
-    log.error(`Restart failed: ${error.message}`);
+    log.error(`Restart scheduling failed: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Cancel scheduled restart
+ */
+app.post('/api/restart/cancel', async (req, res) => {
+  try {
+    log.info('Restart cancel requested via API');
+    const result = cancelRestart();
+    res.json(result);
+  } catch (error) {
+    log.error(`Restart cancel failed: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get restart status
+ */
+app.get('/api/restart/status', async (req, res) => {
+  try {
+    const status = getRestartStatus();
+    res.json(status);
+  } catch (error) {
+    log.error(`Failed to get restart status: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
 });

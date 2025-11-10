@@ -1,15 +1,11 @@
 const simpleGit = require('simple-git');
 const fs = require('fs').promises;
 const path = require('path');
-const http = require('http');
-const { exec } = require('child_process');
-const { promisify } = require('util');
 const { log, exists, copyDirectory, removeDirectory } = require('./utils');
 const { createBackup, cleanOldBackups } = require('./backup');
 const { addSyncEntry, updateSyncEntry } = require('./syncHistory');
 const { notifySyncStarted, notifySyncSuccess, notifySyncFailed } = require('./notifications');
-
-const execAsync = promisify(exec);
+const { scheduleRestart } = require('./restartManager');
 
 /**
  * Get git repository URL with authentication
@@ -41,58 +37,6 @@ function getAuthenticatedRepoUrl() {
 
     // Default: assume it's in user/repo format
     return `https://${token}@github.com/${repo}.git`;
-  }
-}
-
-/**
- * Restart Home Assistant
- */
-async function restartHomeAssistant() {
-  if (process.env.AUTO_RESTART !== 'true') {
-    log.info('Auto-restart disabled, skipping HA restart');
-    return;
-  }
-
-  log.info('Restarting Home Assistant...');
-
-  try {
-    // Use Supervisor API to restart core
-    const token = process.env.SUPERVISOR_TOKEN;
-    if (!token) {
-      log.warn('SUPERVISOR_TOKEN not available, skipping restart');
-      return;
-    }
-
-    return new Promise((resolve, reject) => {
-      const options = {
-        hostname: 'supervisor',
-        port: 80,
-        path: '/core/restart',
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      };
-
-      const req = http.request(options, (res) => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          log.info('Home Assistant restart command sent');
-          resolve();
-        } else {
-          reject(new Error(`Supervisor API returned ${res.statusCode}`));
-        }
-      });
-
-      req.on('error', (error) => {
-        reject(error);
-      });
-
-      req.end();
-    });
-  } catch (error) {
-    log.error(`Failed to restart Home Assistant: ${error.message}`);
-    throw error;
   }
 }
 
@@ -224,10 +168,10 @@ async function syncFromGitHub(syncType = 'manual', metadata = {}) {
       await cleanOldBackups();
     }
 
-    // Step 9: Restart Home Assistant if enabled
+    // Step 9: Schedule Home Assistant restart if enabled
     const restarted = process.env.AUTO_RESTART === 'true';
     if (restarted) {
-      await restartHomeAssistant();
+      await scheduleRestart(10); // 10 second delay before restart
     }
 
     const duration = Date.now() - startTime;
@@ -275,6 +219,5 @@ async function syncFromGitHub(syncType = 'manual', metadata = {}) {
 }
 
 module.exports = {
-  syncFromGitHub,
-  restartHomeAssistant
+  syncFromGitHub
 };

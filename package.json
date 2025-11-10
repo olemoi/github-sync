@@ -1,0 +1,21 @@
+{
+  "name": "ha-github-sync",
+  "version": "1.0.0",
+  "description": "Home Assistant addon to sync configuration from GitHub",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "keywords": [
+    "home-assistant",
+    "github",
+    "sync",
+    "webhook"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "simple-git": "^3.21.0"
+  }
+}

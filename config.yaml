@@ -1,0 +1,52 @@
+name: GitHub Config Sync
+version: "1.0.0"
+slug: github_config_sync
+description: Sync your Home Assistant configuration with GitHub via webhooks
+arch:
+  - armhf
+  - armv7
+  - aarch64
+  - amd64
+  - i386
+init: false
+startup: application
+boot: auto
+ports:
+  8099/tcp: 8099
+ports_description:
+  8099/tcp: Webhook receiver port
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:github
+panel_title: GitHub Sync
+webui: http://[HOST]:[PORT:8099]
+options:
+  git_repository: ""
+  git_branch: "main"
+  auth_method: "token"
+  access_token: ""
+  ssh_key: ""
+  webhook_secret: ""
+  auto_restart: false
+  backup_enabled: true
+  backup_retention: 5
+  sync_path: "/config"
+  notifications_enabled: true
+  notification_service: "notify.notify"
+schema:
+  git_repository: str
+  git_branch: str
+  auth_method: list(token|ssh)
+  access_token: password?
+  ssh_key: password?
+  webhook_secret: password
+  auto_restart: bool
+  backup_enabled: bool
+  backup_retention: int(1,30)
+  sync_path: str
+  notifications_enabled: bool
+  notification_service: str
+map:
+  - config:rw
+  - ssl:ro
+  - backup:rw

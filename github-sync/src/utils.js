@@ -77,20 +77,18 @@ async function syncDirectory(source, destination) {
     await fs.mkdir(destination, { recursive: true });
 
     // Protected files/directories that should never be deleted
+    // Only excludes HA's internal runtime files, NOT user config
     const excludes = [
-      '.storage/',
-      '.cloud/',
-      '.HA_VERSION',
-      'home-assistant.log*',
-      'home-assistant_v2.db*',
-      'OZW_Log.txt',
-      '.uuid',
-      '.google.token',
-      'deps/',
-      'tts/',
-      'www/',
-      'custom_components/',
-      'blueprints/'
+      '.storage/',           // HA's internal database
+      '.cloud/',             // Nabu Casa data
+      '.HA_VERSION',         // Version file
+      'home-assistant.log*', // Logs
+      'home-assistant_v2.db*', // Database
+      'OZW_Log.txt',         // OpenZWave logs
+      '.uuid',               // Installation ID
+      '.google.token',       // Google tokens
+      'deps/',               // Python dependencies cache
+      'tts/'                 // Text-to-speech cache
     ];
 
     // Build rsync command with --delete flag and excludes
@@ -98,9 +96,27 @@ async function syncDirectory(source, destination) {
     const command = `rsync -av --delete ${excludeFlags} "${source}/" "${destination}/"`;
 
     log.info('Syncing directory (this will delete removed files)...');
-    await execAsync(command);
+    log.debug(`Rsync command: ${command}`);
 
-    log.info(`Synced ${source} to ${destination}`);
+    const { stdout, stderr } = await execAsync(command);
+
+    // Count and log deletions
+    const deletions = (stdout.match(/deleting /g) || []).length;
+    const changes = stdout.split('\n').filter(line => line && !line.startsWith('sending') && !line.startsWith('total')).length;
+
+    if (deletions > 0) {
+      log.info(`Deleted ${deletions} file(s) that were removed from Git`);
+    }
+
+    log.info(`Synced ${source} to ${destination} (${changes} changes, ${deletions} deletions)`);
+
+    // Log full output in debug mode
+    if (stdout) {
+      log.debug(`Rsync output: ${stdout}`);
+    }
+    if (stderr) {
+      log.warn(`Rsync stderr: ${stderr}`);
+    }
 
   } catch (error) {
     throw new Error(`Failed to sync directory: ${error.message}`);

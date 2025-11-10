@@ -17,7 +17,7 @@ export SYNC_PATH=$(bashio::config 'sync_path')
 export NOTIFICATIONS_ENABLED=$(bashio::config 'notifications_enabled')
 export NOTIFICATION_SERVICE=$(bashio::config 'notification_service')
 export WEBHOOK_PORT=8099
-export SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN}"
+export SUPERVISOR_TOKEN="${SUPERVISOR_TOKEN:-}"
 export HOMEASSISTANT_URL="http://supervisor/core"
 
 # Validate required configuration

@@ -11,6 +11,8 @@ arch:
 init: false
 startup: application
 boot: auto
+hassio_api: true
+homeassistant_api: true
 ports:
   8099/tcp: 8099
 ports_description:

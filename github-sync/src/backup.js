@@ -7,6 +7,90 @@ const { log, exists } = require('./utils');
 const execAsync = promisify(exec);
 
 const BACKUP_DIR = '/backup/github-sync';
+const PROTECTED_BACKUPS_FILE = path.join(BACKUP_DIR, '.protected-backups.json');
+
+/**
+ * Load protected backups list
+ */
+async function loadProtectedBackups() {
+  try {
+    if (await exists(PROTECTED_BACKUPS_FILE)) {
+      const data = await fs.readFile(PROTECTED_BACKUPS_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+    return [];
+  } catch (error) {
+    log.error(`Failed to load protected backups: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Save protected backups list
+ */
+async function saveProtectedBackups(protectedList) {
+  try {
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+    await fs.writeFile(PROTECTED_BACKUPS_FILE, JSON.stringify(protectedList, null, 2));
+  } catch (error) {
+    log.error(`Failed to save protected backups: ${error.message}`);
+  }
+}
+
+/**
+ * Check if a backup is protected
+ */
+async function isBackupProtected(backupPath) {
+  const protected = await loadProtectedBackups();
+  return protected.includes(path.basename(backupPath));
+}
+
+/**
+ * Protect (pin) a backup from auto-deletion
+ */
+async function protectBackup(backupPath) {
+  try {
+    if (!await exists(backupPath)) {
+      throw new Error(`Backup not found: ${backupPath}`);
+    }
+
+    const protected = await loadProtectedBackups();
+    const backupName = path.basename(backupPath);
+
+    if (!protected.includes(backupName)) {
+      protected.push(backupName);
+      await saveProtectedBackups(protected);
+      log.info(`Protected backup: ${backupName}`);
+    }
+
+    return true;
+  } catch (error) {
+    log.error(`Failed to protect backup: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Unprotect (unpin) a backup
+ */
+async function unprotectBackup(backupPath) {
+  try {
+    const protected = await loadProtectedBackups();
+    const backupName = path.basename(backupPath);
+
+    const filtered = protected.filter(name => name !== backupName);
+
+    if (filtered.length !== protected.length) {
+      await saveProtectedBackups(filtered);
+      log.info(`Unprotected backup: ${backupName}`);
+    }
+
+    return true;
+  } catch (error) {
+    log.error(`Failed to unprotect backup: ${error.message}`);
+    throw error;
+  }
+}
 
 /**
  * Create a timestamped backup of the config directory
@@ -71,15 +155,19 @@ async function listBackups() {
       .filter(f => f.endsWith('.tar.gz'))
       .map(f => path.join(BACKUP_DIR, f));
 
+    const protectedList = await loadProtectedBackups();
+
     // Get file stats and sort by creation time
     const backupStats = await Promise.all(
       backups.map(async (backup) => {
         const stats = await fs.stat(backup);
+        const backupName = path.basename(backup);
         return {
           path: backup,
-          name: path.basename(backup),
+          name: backupName,
           created: stats.mtime,
-          size: stats.size
+          size: stats.size,
+          protected: protectedList.includes(backupName)
         };
       })
     );
@@ -94,29 +182,34 @@ async function listBackups() {
 
 /**
  * Clean old backups based on retention policy
+ * Protected backups are never deleted
  */
 async function cleanOldBackups() {
   const retention = parseInt(process.env.BACKUP_RETENTION || '5', 10);
 
   try {
-    const backups = await listBackups();
+    const allBackups = await listBackups();
 
-    if (backups.length <= retention) {
-      log.info(`Current backups (${backups.length}) within retention limit (${retention})`);
+    // Separate protected and unprotected backups
+    const unprotectedBackups = allBackups.filter(b => !b.protected);
+    const protectedBackups = allBackups.filter(b => b.protected);
+
+    if (unprotectedBackups.length <= retention) {
+      log.info(`Current backups: ${unprotectedBackups.length} unprotected, ${protectedBackups.length} protected (retention: ${retention})`);
       return;
     }
 
-    // Remove oldest backups beyond retention limit
-    const toRemove = backups.slice(retention);
+    // Remove oldest unprotected backups beyond retention limit
+    const toRemove = unprotectedBackups.slice(retention);
 
-    log.info(`Removing ${toRemove.length} old backup(s)...`);
+    log.info(`Removing ${toRemove.length} old backup(s) (keeping ${protectedBackups.length} protected)...`);
 
     for (const backup of toRemove) {
       await fs.unlink(backup.path);
       log.info(`Removed old backup: ${backup.name}`);
     }
 
-    log.info('Old backups cleaned successfully');
+    log.info(`Backups cleaned: ${unprotectedBackups.length - toRemove.length} kept, ${protectedBackups.length} protected, ${toRemove.length} deleted`);
 
   } catch (error) {
     log.error(`Failed to clean old backups: ${error.message}`);
@@ -202,5 +295,8 @@ module.exports = {
   getLatestBackup,
   rollbackToBackup,
   deleteBackup,
+  protectBackup,
+  unprotectBackup,
+  isBackupProtected,
   BACKUP_DIR
 };

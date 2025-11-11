@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
 const { syncFromGitHub } = require('./gitSync');
-const { listBackups, rollbackToBackup, deleteBackup } = require('./backup');
+const { listBackups, rollbackToBackup, deleteBackup, protectBackup, unprotectBackup } = require('./backup');
 const { getStats, getRecentSyncs, clearHistory } = require('./syncHistory');
 const { notifyRollbackSuccess, notifyRollbackFailed } = require('./notifications');
 const { scheduleRestart, cancelRestart, getRestartStatus } = require('./restartManager');
@@ -154,6 +154,48 @@ app.delete('/api/backups/:filename', async (req, res) => {
 
   } catch (error) {
     log.error(`Failed to delete backup: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Protect (pin) a backup
+ */
+app.post('/api/backups/:filename/protect', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const backupPath = path.join('/backup/github-sync', filename);
+
+    await protectBackup(backupPath);
+
+    res.json({
+      success: true,
+      message: 'Backup protected from auto-deletion'
+    });
+
+  } catch (error) {
+    log.error(`Failed to protect backup: ${error.message}`);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Unprotect (unpin) a backup
+ */
+app.post('/api/backups/:filename/unprotect', async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const backupPath = path.join('/backup/github-sync', filename);
+
+    await unprotectBackup(backupPath);
+
+    res.json({
+      success: true,
+      message: 'Backup unprotected'
+    });
+
+  } catch (error) {
+    log.error(`Failed to unprotect backup: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
 });

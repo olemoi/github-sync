@@ -150,20 +150,27 @@ async function loadBackups() {
 function renderBackupItem(backup) {
     const date = new Date(backup.created);
     const dateStr = date.toLocaleString();
+    const protectedBadge = backup.protected ? '<span class="protected-badge">📌 Protected</span>' : '';
+    const pinButtonText = backup.protected ? 'Unpin' : 'Pin';
+    const pinButtonClass = backup.protected ? 'btn-secondary' : 'btn-primary';
+    const pinAction = backup.protected ? 'unpinBackup' : 'pinBackup';
 
     return `
-        <div class="backup-item">
+        <div class="backup-item ${backup.protected ? 'protected' : ''}">
             <div class="backup-info">
-                <h4>${backup.name}</h4>
+                <h4>${backup.name} ${protectedBadge}</h4>
                 <div class="backup-meta">
                     ${dateStr} • ${backup.sizeFormatted}
                 </div>
             </div>
             <div class="backup-actions">
+                <button class="btn ${pinButtonClass} btn-small" onclick="${pinAction}('${backup.name}')" title="${backup.protected ? 'Remove protection' : 'Protect from auto-deletion'}">
+                    ${pinButtonText}
+                </button>
                 <button class="btn btn-warning btn-small" onclick="rollbackToBackup('${backup.path}')">
                     Restore
                 </button>
-                <button class="btn btn-secondary btn-small" onclick="deleteBackup('${backup.name}')">
+                <button class="btn btn-secondary btn-small" onclick="deleteBackup('${backup.name}')" ${backup.protected ? 'disabled title="Unpin before deleting"' : ''}>
                     Delete
                 </button>
             </div>
@@ -480,3 +487,53 @@ document.addEventListener('DOMContentLoaded', () => {
     // Then check every 2 seconds
     setInterval(checkRestartStatus, 2000);
 });
+
+// ============================================================================
+// Backup Protection (Pin/Unpin)
+// ============================================================================
+
+/**
+ * Pin (protect) a backup from auto-deletion
+ */
+async function pinBackup(filename) {
+    try {
+        const response = await fetch('./api/backups/' + encodeURIComponent(filename) + '/protect', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showToast('Backup protected from auto-deletion', 'success');
+            await loadBackups();
+        } else {
+            showToast(result.error || 'Failed to protect backup', 'error');
+        }
+    } catch (error) {
+        console.error('Failed to protect backup:', error);
+        showToast('Failed to protect backup', 'error');
+    }
+}
+
+/**
+ * Unpin (unprotect) a backup
+ */
+async function unpinBackup(filename) {
+    try {
+        const response = await fetch('./api/backups/' + encodeURIComponent(filename) + '/unprotect', {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showToast('Backup unprotected', 'success');
+            await loadBackups();
+        } else {
+            showToast(result.error || 'Failed to unprotect backup', 'error');
+        }
+    } catch (error) {
+        console.error('Failed to unprotect backup:', error);
+        showToast('Failed to unprotect backup', 'error');
+    }
+}

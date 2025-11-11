@@ -1,5 +1,5 @@
 name: GitHub Config Sync
-version: "1.0.9"
+version: "1.0.10"
 slug: github_config_sync
 description: Sync your Home Assistant configuration with GitHub via webhooks
 arch:

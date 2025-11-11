@@ -140,7 +140,7 @@ app.post('/api/rollback', async (req, res) => {
 /**
  * Delete a backup
  */
-app.delete('/api/backups/:filename', async (req, res) => {
+app.delete('/api/backups/:filename(*)', async (req, res) => {
   try {
     const { filename } = req.params;
     const backupPath = path.join('/backup/github-sync', filename);
@@ -161,7 +161,7 @@ app.delete('/api/backups/:filename', async (req, res) => {
 /**
  * Protect (pin) a backup
  */
-app.post('/api/backups/:filename/protect', async (req, res) => {
+app.post('/api/backups/:filename(*)/protect', async (req, res) => {
   try {
     const { filename } = req.params;
     const backupPath = path.join('/backup/github-sync', filename);
@@ -182,7 +182,7 @@ app.post('/api/backups/:filename/protect', async (req, res) => {
 /**
  * Unprotect (unpin) a backup
  */
-app.post('/api/backups/:filename/unprotect', async (req, res) => {
+app.post('/api/backups/:filename(*)/unprotect', async (req, res) => {
   try {
     const { filename } = req.params;
     const backupPath = path.join('/backup/github-sync', filename);

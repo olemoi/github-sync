@@ -293,7 +293,7 @@ async function deleteBackup(filename) {
     }
 
     try {
-        const response = await fetch(`/api/backups/${encodeURIComponent(filename)}`, {
+        const response = await fetch(`./api/backups/${encodeURIComponent(filename)}`, {
             method: 'DELETE'
         });
 

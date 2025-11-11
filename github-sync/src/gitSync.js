@@ -1,11 +1,12 @@
 const simpleGit = require('simple-git');
 const fs = require('fs').promises;
 const path = require('path');
-const { log, exists, copyDirectory, syncDirectory, removeDirectory } = require('./utils');
+const { log, exists, copyDirectory, removeDirectory } = require('./utils');
 const { createBackup, cleanOldBackups } = require('./backup');
 const { addSyncEntry, updateSyncEntry } = require('./syncHistory');
 const { notifySyncStarted, notifySyncSuccess, notifySyncFailed } = require('./notifications');
 const { scheduleRestart } = require('./restartManager');
+const { trackedSync } = require('./trackedSync');
 
 /**
  * Get git repository URL with authentication
@@ -126,11 +127,8 @@ async function syncFromGitHub(syncType = 'manual', metadata = {}) {
       throw new Error(`Failed to clone repository: ${error.message}`);
     }
 
-    // Step 4: Remove .git directory from temp (we don't need version control in sync)
-    const gitDir = path.join(tempDir, '.git');
-    if (await exists(gitDir)) {
-      await removeDirectory(gitDir);
-    }
+    // Step 4: Keep .git directory - we need it to determine which files are tracked
+    // (The .git directory will be cleaned up with the temp directory after sync)
 
     // Step 5: Validate configuration before applying
     log.info('Validating new configuration...');
@@ -153,12 +151,12 @@ async function syncFromGitHub(syncType = 'manual', metadata = {}) {
     // Clean up validation directory
     await removeDirectory(validationDir);
 
-    // Step 6: Apply changes atomically (with deletions)
-    log.info('Applying changes to config directory...');
+    // Step 6: Apply changes safely (only Git-tracked files)
+    log.info('Applying changes to config directory (tracked files only)...');
 
-    await syncDirectory(tempDir, syncPath);
+    const syncResults = await trackedSync(tempDir, syncPath);
 
-    log.info('Changes applied successfully (including deletions)');
+    log.info(`Changes applied: ${syncResults.copied} files synced, ${syncResults.deleted} removed from Git`);
 
     // Step 7: Clean up temp directory
     await removeDirectory(tempDir);

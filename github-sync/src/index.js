@@ -321,7 +321,17 @@ app.post('/webhook', async (req, res) => {
     }
 
     const event = req.headers['x-github-event'];
-    const payload = JSON.parse(req.body.toString());
+
+    // Parse payload - handle both JSON and URL-encoded form data
+    let payload;
+    const bodyStr = req.body.toString();
+    if (bodyStr.startsWith('payload=')) {
+      // URL-encoded form data from GitHub
+      payload = JSON.parse(decodeURIComponent(bodyStr.slice(8)));
+    } else {
+      // Raw JSON
+      payload = JSON.parse(bodyStr);
+    }
 
     log.info(`GitHub event: ${event}`);
 

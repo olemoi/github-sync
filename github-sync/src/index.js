@@ -321,7 +321,7 @@ app.post('/webhook', async (req, res) => {
     }
 
     const event = req.headers['x-github-event'];
-    const payload = req.body;
+    const payload = JSON.parse(req.body.toString());
 
     log.info(`GitHub event: ${event}`);
 

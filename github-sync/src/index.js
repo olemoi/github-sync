@@ -11,12 +11,28 @@ const { log, formatBytes } = require('./utils');
 const app = express();
 const port = process.env.WEBHOOK_PORT || 8099;
 
-// Middleware to parse JSON with raw body for signature verification
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf.toString('utf8');
+// Middleware to capture raw body for signature verification
+app.use(express.raw({ type: '*/*', limit: '10mb' }));
+
+// Parse JSON from raw body
+app.use((req, res, next) => {
+  if (req.body && Buffer.isBuffer(req.body)) {
+    req.rawBody = req.body.toString('utf8');
+    try {
+      req.body = JSON.parse(req.rawBody);
+    } catch (e) {
+      // Keep raw body, parsing failed
+    }
+  } else if (typeof req.body === 'string') {
+    req.rawBody = req.body;
+    try {
+      req.body = JSON.parse(req.rawBody);
+    } catch (e) {
+      // Keep raw body, parsing failed
+    }
   }
-}));
+  next();
+});
 
 // Serve static files for web UI
 app.use(express.static(path.join(__dirname, 'public')));
@@ -25,21 +41,37 @@ app.use(express.static(path.join(__dirname, 'public')));
  * Verify GitHub webhook signature
  */
 function verifyGitHubSignature(req) {
-  const signature = req.headers['x-hub-signature-256'];
-  const secret = process.env.WEBHOOK_SECRET;
+  try {
+    const signature = req.headers['x-hub-signature-256'];
+    const secret = process.env.WEBHOOK_SECRET;
 
-  if (!signature || !secret) {
+    if (!signature || !secret) {
+      log.error(`Missing signature or secret - signature: ${!!signature}, secret: ${!!secret}`);
+      return false;
+    }
+
+    if (!req.rawBody) {
+      log.error('Missing raw body for signature verification');
+      return false;
+    }
+
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(req.rawBody);
+    const calculatedSignature = 'sha256=' + hmac.digest('hex');
+
+    const sigBuffer = Buffer.from(signature);
+    const calcBuffer = Buffer.from(calculatedSignature);
+
+    if (sigBuffer.length !== calcBuffer.length) {
+      log.error(`Signature length mismatch: received ${sigBuffer.length}, expected ${calcBuffer.length}`);
+      return false;
+    }
+
+    return crypto.timingSafeEqual(sigBuffer, calcBuffer);
+  } catch (error) {
+    log.error(`Signature verification error: ${error.message}`);
     return false;
   }
-
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(req.rawBody);
-  const calculatedSignature = 'sha256=' + hmac.digest('hex');
-
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(calculatedSignature)
-  );
 }
 
 // ============================================================================
